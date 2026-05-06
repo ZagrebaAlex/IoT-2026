@@ -1,0 +1,3 @@
+pymongo
+pyserial
+python-dotenv
