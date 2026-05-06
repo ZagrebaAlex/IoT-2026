@@ -65,38 +65,16 @@ def main() -> None:
     database = mongo_client[MONGO_DB]
     collection = database[MONGO_COLLECTION]
 
-    with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as serial_connection:
-        print("Listening for sensor data...")
+    # with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as serial_connection:
+    #     print("Listening for sensor data...")
 
-        while True:
-            raw_bytes = serial_connection.readline()
+    #     while True:
+    #         raw_bytes = serial_connection.readline()
 
-            if not raw_bytes:
-                continue
-
-            line = raw_bytes.decode("utf-8", errors="ignore").strip()
-
-            print(f"Received: {line}")
-
-            document = parse_line(line)
-
-            if document is None:
-                continue
-
-            collection.insert_one(document)
-
-            print(f"Inserted measurement from node {document['node_id']}")
-
-
-    ## For testing without serial device.
-    # with open("test_data.txt", "r") as file:
-    #     print("Reading simulated sensor data...")
-
-    #     for line in file:
-    #         line = line.strip()
-
-    #         if not line:
+    #         if not raw_bytes:
     #             continue
+
+    #         line = raw_bytes.decode("utf-8", errors="ignore").strip()
 
     #         print(f"Received: {line}")
 
@@ -108,6 +86,28 @@ def main() -> None:
     #         collection.insert_one(document)
 
     #         print(f"Inserted measurement from node {document['node_id']}")
+
+
+    ## For testing without serial device.
+    with open("test_data.txt", "r") as file:
+        print("Reading simulated sensor data...")
+
+        for line in file:
+            line = line.strip()
+
+            if not line:
+                continue
+
+            print(f"Received: {line}")
+
+            document = parse_line(line)
+
+            if document is None:
+                continue
+
+            collection.insert_one(document)
+
+            print(f"Inserted measurement from node {document['node_id']}")
   
     
 
