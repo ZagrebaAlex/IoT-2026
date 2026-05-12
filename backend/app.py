@@ -7,8 +7,10 @@ from typing import Optional
 
 from bson import ObjectId
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pymongo import MongoClient, DESCENDING
 
 
@@ -23,6 +25,9 @@ MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "measurements")
 mongo_client = MongoClient(MONGO_URI)
 database = mongo_client[MONGO_DB]
 measurements_collection = database[MONGO_COLLECTION]
+frontend_dir = Path(__file__).resolve().parent / "frontend"
+frontend_dist_dir = frontend_dir / "dist"
+frontend_assets_dir = frontend_dist_dir / "assets"
 
 
 app = FastAPI(title="IoT Project Backend")
@@ -35,6 +40,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if frontend_assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=frontend_assets_dir), name="assets")
 
 
 def serialize_document(document: dict) -> dict:
@@ -51,12 +59,34 @@ def serialize_document(document: dict) -> dict:
     }
 
 
+def get_frontend_index() -> FileResponse:
+    index_path = frontend_dist_dir / "index.html"
+
+    if not index_path.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="Frontend build not found. Run `npm run build` in backend/frontend.",
+        )
+
+    return FileResponse(index_path)
+
+
 @app.get("/")
-def health_check() -> dict:
+def root_page() -> FileResponse:
+    return get_frontend_index()
+
+
+@app.get("/health")
+def get_health() -> dict:
     return {
         "status": "ok",
-        "message": "IoT Project Backend is running",    
+        "message": "IoT Project Backend is running",
     }
+
+
+@app.get("/nodes/{node_id}")
+def node_details_page(node_id: int) -> FileResponse:
+    return get_frontend_index()
 
 
 @app.get("/measurements/history")
@@ -88,6 +118,51 @@ def get_historical_measurements(
     documents = measurements_collection.find(query).sort("timestamp", 1)
 
     return [serialize_document(document) for document in documents]
+
+
+@app.get("/nodes")
+def get_nodes() -> list[dict]:
+    node_ids = measurements_collection.distinct("node_id")
+    nodes: list[dict] = []
+
+    for node_id in sorted(node_ids):
+        latest_document = measurements_collection.find_one(
+            {"node_id": node_id},
+            sort=[("timestamp", DESCENDING)],
+        )
+
+        if latest_document is None:
+            continue
+
+        nodes.append(
+            {
+                "node_id": node_id,
+                "latest_measurement": serialize_document(latest_document),
+            }
+        )
+
+    return nodes
+
+
+@app.get("/nodes/{node_id}/latest")
+def get_latest_measurement_for_node(node_id: int) -> dict:
+    latest_document = measurements_collection.find_one(
+        {"node_id": node_id},
+        sort=[("timestamp", DESCENDING)],
+    )
+
+    if latest_document is None:
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    return serialize_document(latest_document)
+
+
+@app.get("/{full_path:path}")
+def frontend_routes(full_path: str) -> FileResponse:
+    if full_path.startswith(("health", "nodes", "measurements", "ws", "docs", "redoc", "openapi.json", "assets")):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    return get_frontend_index()
 
 @app.websocket("/ws/measurements")
 async def websocket_measurements(websocket: WebSocket):
