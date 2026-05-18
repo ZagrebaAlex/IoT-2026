@@ -6,6 +6,46 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: wsn-backend
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: iot_project
+      MONGO_COLLECTION: measurements
+    ports:
+      - "8000:8000"
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: Ingestion/Dockerfile
+    container_name: wsn-ingestion
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: iot_project
+      MONGO_COLLECTION: measurements
+      SERIAL_PORT: /dev/ttyUSB2
+      BAUD_RATE: "115200"
+      DATA_SOURCE: serial
+    devices:
+      - "/dev/ttyUSB2:/dev/ttyUSB2"
+    profiles:
+      - serial
 
 volumes:
   mongo_data:
