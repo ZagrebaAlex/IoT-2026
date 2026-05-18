@@ -9,7 +9,6 @@ import os
 import sys
 from datetime import datetime, timezone
 
-import serial
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -20,9 +19,6 @@ load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB = os.getenv("MONGO_DB")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION")
-SERIAL_PORT = os.getenv("SERIAL_PORT")
-BAUD_RATE = int(os.getenv("BAUD_RATE"))
-DATA_SOURCE = os.getenv("DATA_SOURCE", "serial").strip().lower()
 
 
 def convert_raw_temperature(raw_temperature: int) -> float:
@@ -116,30 +112,10 @@ def main() -> None:
     database = mongo_client[MONGO_DB]
     collection = database[MONGO_COLLECTION]
 
-    if DATA_SOURCE == "serial":
-        with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as serial_connection:
-            print(f"Listening for sensor data on {SERIAL_PORT} at {BAUD_RATE} baud...")
+    print("Reading sensor data from stdin...")
 
-            while True:
-                raw_bytes = serial_connection.readline()
-
-                if not raw_bytes:
-                    continue
-
-                line = raw_bytes.decode("utf-8", errors="ignore").strip()
-
-                process_line(collection, line)
-    elif DATA_SOURCE == "stdin":
-        print("Reading sensor data from stdin...")
-
-        for line in sys.stdin:
-            process_line(collection, line)
-    else:
-        with open("test_data.txt", "r") as file:
-            print("Reading simulated sensor data...")
-
-            for line in file:
-                process_line(collection, line)
+    for line in sys.stdin:
+        process_line(collection, line)
 
 
 if __name__ == "__main__":
