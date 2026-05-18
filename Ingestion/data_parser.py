@@ -6,6 +6,7 @@ node=1,temp=6588,humidity=1336,count=14
 """
 
 import os
+import sys
 from datetime import datetime, timezone
 
 import serial
@@ -96,6 +97,20 @@ def store_document(collection, line: str) -> None:
     )
 
 
+def process_line(collection, line: str) -> None:
+    cleaned_line = line.strip()
+
+    if not cleaned_line:
+        return
+
+    if not cleaned_line.startswith("node="):
+        print(f"Skipping non-measurement line: {cleaned_line}")
+        return
+
+    print(f"Received: {cleaned_line}")
+    store_document(collection, cleaned_line)
+
+
 def main() -> None:
     mongo_client = MongoClient(MONGO_URI)
     database = mongo_client[MONGO_DB]
@@ -113,23 +128,18 @@ def main() -> None:
 
                 line = raw_bytes.decode("utf-8", errors="ignore").strip()
 
-                if not line:
-                    continue
+                process_line(collection, line)
+    elif DATA_SOURCE == "stdin":
+        print("Reading sensor data from stdin...")
 
-                print(f"Received: {line}")
-                store_document(collection, line)
+        for line in sys.stdin:
+            process_line(collection, line)
     else:
         with open("test_data.txt", "r") as file:
             print("Reading simulated sensor data...")
 
             for line in file:
-                line = line.strip()
-
-                if not line:
-                    continue
-
-                print(f"Received: {line}")
-                store_document(collection, line)
+                process_line(collection, line)
 
 
 if __name__ == "__main__":

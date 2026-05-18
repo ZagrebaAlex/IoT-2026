@@ -2,6 +2,8 @@ services:
   mongo:
     image: mongo:7
     container_name: wsn-mongo
+    security_opt:
+      - seccomp:unconfined
     ports:
       - "27017:27017"
     volumes:
@@ -17,6 +19,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: wsn-backend
+    security_opt:
+      - seccomp:unconfined
     depends_on:
       mongo:
         condition: service_healthy
@@ -32,6 +36,8 @@ services:
       context: .
       dockerfile: Ingestion/Dockerfile
     container_name: wsn-ingestion
+    security_opt:
+      - seccomp:unconfined
     depends_on:
       mongo:
         condition: service_healthy
@@ -39,13 +45,10 @@ services:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: iot_project
       MONGO_COLLECTION: measurements
-      SERIAL_PORT: /dev/ttyUSB2
-      BAUD_RATE: "115200"
-      DATA_SOURCE: serial
-    devices:
-      - "/dev/ttyUSB2:/dev/ttyUSB2"
+      DATA_SOURCE: stdin
+    stdin_open: true
     profiles:
-      - serial
+      - stdin
 
 volumes:
   mongo_data:
