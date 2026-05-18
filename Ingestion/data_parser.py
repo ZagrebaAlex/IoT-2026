@@ -1,8 +1,8 @@
 """
-This script reads lines from a serial port, and parses into mongodb documents.
+This script reads lines from a serial port, and parses them into mongodb documents.
 
-Expected input line format:
-node=1,temp=24.5,humidity=55.2,count=14
+Expected input line format from the collector mote:
+node=1,temp=6588,humidity=1336,count=14
 """
 
 import os
@@ -21,6 +21,20 @@ MONGO_DB = os.getenv("MONGO_DB")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION")
 SERIAL_PORT = os.getenv("SERIAL_PORT")
 BAUD_RATE = int(os.getenv("BAUD_RATE"))
+DATA_SOURCE = os.getenv("DATA_SOURCE", "serial").strip().lower()
+
+
+def convert_raw_temperature(raw_temperature: int) -> float:
+    return round(-39.6 + (0.01 * raw_temperature), 2)
+
+
+def convert_raw_humidity(raw_humidity: int, temperature_celsius: float) -> float:
+    humidity_linear = -4 + (0.0405 * raw_humidity) - (0.0000028 * (raw_humidity ** 2))
+    humidity_compensated = (
+        (temperature_celsius - 25.0) * (0.01 + (0.00008 * raw_humidity))
+    ) + humidity_linear
+
+    return round(max(0.0, min(100.0, humidity_compensated)), 2)
 
 
 
@@ -29,7 +43,7 @@ def parse_line(line: str) -> dict | None:
     Converts a serial line into a MongoDB document.
 
     Example:
-    node=1,temp=24.5,humidity=55.2,count=14
+    node=1,temp=6588,humidity=1336,count=14
     """
 
     if not line:
@@ -44,12 +58,19 @@ def parse_line(line: str) -> dict | None:
             key, value = part.split("=")
             values[key.strip()] = value.strip()
 
+        raw_temperature = int(values["temp"])
+        raw_humidity = int(values["humidity"])
+        temperature = convert_raw_temperature(raw_temperature)
+        humidity = convert_raw_humidity(raw_humidity, temperature)
+
         return {
             "timestamp": datetime.now(timezone.utc),
             "node_id": int(values["node"]),
-            "temperature": float(values["temp"]),
-            "humidity": float(values["humidity"]),
+            "temperature": temperature,
+            "humidity": humidity,
             "count": int(values["count"]),
+            "raw_temperature": raw_temperature,
+            "raw_humidity": raw_humidity,
             "raw_line": line,
         }
 
@@ -59,57 +80,56 @@ def parse_line(line: str) -> dict | None:
         return None
 
 
-def main() -> None:
+def store_document(collection, line: str) -> None:
+    document = parse_line(line)
 
+    if document is None:
+        return
+
+    collection.insert_one(document)
+    print(
+        "Inserted measurement "
+        f"node={document['node_id']} "
+        f"temp={document['temperature']}C "
+        f"humidity={document['humidity']}% "
+        f"count={document['count']}"
+    )
+
+
+def main() -> None:
     mongo_client = MongoClient(MONGO_URI)
     database = mongo_client[MONGO_DB]
     collection = database[MONGO_COLLECTION]
 
-    # with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as serial_connection:
-    #     print("Listening for sensor data...")
+    if DATA_SOURCE == "serial":
+        with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as serial_connection:
+            print(f"Listening for sensor data on {SERIAL_PORT} at {BAUD_RATE} baud...")
 
-    #     while True:
-    #         raw_bytes = serial_connection.readline()
+            while True:
+                raw_bytes = serial_connection.readline()
 
-    #         if not raw_bytes:
-    #             continue
+                if not raw_bytes:
+                    continue
 
-    #         line = raw_bytes.decode("utf-8", errors="ignore").strip()
+                line = raw_bytes.decode("utf-8", errors="ignore").strip()
 
-    #         print(f"Received: {line}")
+                if not line:
+                    continue
 
-    #         document = parse_line(line)
+                print(f"Received: {line}")
+                store_document(collection, line)
+    else:
+        with open("test_data.txt", "r") as file:
+            print("Reading simulated sensor data...")
 
-    #         if document is None:
-    #             continue
+            for line in file:
+                line = line.strip()
 
-    #         collection.insert_one(document)
+                if not line:
+                    continue
 
-    #         print(f"Inserted measurement from node {document['node_id']}")
-
-
-    ## For testing without serial device.
-    with open("test_data.txt", "r") as file:
-        print("Reading simulated sensor data...")
-
-        for line in file:
-            line = line.strip()
-
-            if not line:
-                continue
-
-            print(f"Received: {line}")
-
-            document = parse_line(line)
-
-            if document is None:
-                continue
-
-            collection.insert_one(document)
-
-            print(f"Inserted measurement from node {document['node_id']}")
-  
-    
+                print(f"Received: {line}")
+                store_document(collection, line)
 
 
 if __name__ == "__main__":
