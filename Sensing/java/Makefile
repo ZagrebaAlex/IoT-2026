@@ -6,7 +6,7 @@ SENSOR_DEPS = ../$(SENSOR_DIR)/SensorSample.h
 
 TFLAGS = -I../$(SENSOR_DIR) -I$(TINYOS_OS_DIR)/types -I$(TINYOS_OS_DIR)/platforms/null -I$(TINYOS_OS_DIR)/lib/serial
 
-TINYOS_OS_DIR ?= ../../../../tos
+TINYOS_OS_DIR ?=/home/alex/tinyos-main
 
 all: SensingApp.jar
 

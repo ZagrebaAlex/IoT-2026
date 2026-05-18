@@ -5,5 +5,5 @@ CFLAGS += -DLOW_POWER_LISTENING
 CFLAGS += -I.. -I../tmote_onboard_sensors
 CFLAGS += -DCC1K_DEFAULT_FREQ=CC1K_914_077_MHZ
 
-TINYOS_ROOT_DIR?=../../../..
+TINYOS_ROOT_DIR?=/home/alex/tinyos-main
 include $(TINYOS_ROOT_DIR)/Makefile.include
