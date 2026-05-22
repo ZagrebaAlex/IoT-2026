@@ -1,50 +1,164 @@
 # IoT-2026
-Wireless Sensor Network (WSN) end-to-end project for the Internet of Things course 2025–2026. The project implements a TinyOS-based star topology network using TelosB and IRIS motes, real-time sensor data collection, MongoDB storage, live visualization dashboards, and machine learning analysis for sensor measurement forecasting.
 
-## Frontend dashboard
+End-to-end Wireless Sensor Network project for the AIoT course 2025-2026.
 
-Question 3 is implemented as a React frontend built with Vite and Material UI.
+This repository contains:
 
-- `/` shows all available nodes in a responsive grid.
-- Hovering a node card shows the latest live measurement in a tooltip.
-- Clicking a node opens `/nodes/{node_id}`.
-- The node details page shows the latest measurement at the top.
-- The node details page includes Material UI charts for temperature, humidity, and count history.
-- The node details page includes a date and time range filter for loading archived data.
+- TinyOS code for the motes in [Sensing](/Users/alexzagkrempa/Desktop/IoT-2026/Sensing:1)
+- a MongoDB-backed ingestion pipeline in [Ingestion](/Users/alexzagkrempa/Desktop/IoT-2026/Ingestion:1)
+- a FastAPI backend in [backend](/Users/alexzagkrempa/Desktop/IoT-2026/backend:1)
+- a React + Material UI frontend served by the backend
 
-### Backend routes used by the frontend
+## Fresh Ubuntu 16.04 Setup
 
-- `GET /health` returns backend health status
-- `GET /nodes` returns all detected nodes with their latest measurement
-- `GET /nodes/{node_id}/latest` returns the newest measurement for one node
-- `GET /measurements/history` returns measurements for a selected date range
-- `GET /ws/measurements` streams the latest incoming measurements in real time
+These steps assume a fresh Ubuntu 16.04 VM used for TinyOS and for running the Dockerized web stack.
 
-### Running the app
-
-Build the React frontend once from the `backend/frontend` folder:
+### 1. Update the system
 
 ```bash
-npm install
-npm run build
+sudo apt update
+sudo apt upgrade -y
 ```
 
-Then start the backend with uvicorn from the `backend` folder:
+### 2. Install TinyOS prerequisites
 
 ```bash
-uvicorn app:app --reload
+sudo apt install -y \
+  python2.7 python-minimal openjdk-8-jdk gcc-avr avr-libc nescc \
+  minicom wget unzip automake autoconf libtool avrdude curl \
+  gcc-msp430 git python-serial tinyos-tools
 ```
 
-Then open [http://localhost:8000](http://localhost:8000).
+### 3. Install Docker and docker-compose
 
-### Frontend development mode
+If Docker is not already installed in the VM, install it with your preferred method. On Ubuntu 16.04 this is often done either with Docker's official install script or with the distro packages available to your VM.
 
-If you want to work on the React app directly:
+After installation, confirm:
 
 ```bash
-cd backend/frontend
-npm install
-npm run dev
+docker --version
+docker-compose --version
 ```
 
-This starts the Vite development server on [http://127.0.0.1:5173](http://127.0.0.1:5173).
+### 4. Clone or copy this repository
+
+```bash
+cd ~/Desktop
+git clone github.com/ZagrebaAlex/IoT-2026
+cd IoT-2026
+```
+
+## TinyOS Toolchain Setup
+
+If TinyOS itself is not already installed:
+
+```bash
+git clone https://github.com/tinyos/tinyos-main.git ~/tinyos-main
+cd ~/tinyos-main/tools
+./Bootstrap
+./configure
+make
+sudo make install
+```
+
+Add your user to the serial access group:
+
+```bash
+sudo usermod -aG dialout $USER
+```
+
+Then reboot or log out and log back in.
+
+If your TinyOS environment requires it, load it before using `make`, `PrintfClient`, or `SerialForwarder`:
+
+```bash
+source /path/to/tinyos.sh
+```
+
+If you do not know where it is:
+
+```bash
+find ~ /opt -name tinyos.sh 2>/dev/null
+```
+
+## USB Port Discovery
+
+List all mote USB ports:
+
+```bash
+ls /dev | grep ttyUSB
+```
+
+In our setup:
+
+- `TelosB` appears on one USB port
+- `IRIS` appears on two USB ports
+- the first IRIS port is used for flashing
+- the second IRIS port is used for serial output / `PrintfClient`
+
+Typical mapping example:
+
+- `/dev/ttyUSB0` = TelosB
+- `/dev/ttyUSB1` = IRIS programming port
+- `/dev/ttyUSB2` = IRIS serial output port
+
+Always verify this on your own VM.
+
+## Compile and Flash the Motes
+
+### 1. Compile the IRIS parent
+
+```bash
+cd ~/Desktop/IoT-2026/Sensing/Base
+make clean
+make iris
+```
+
+### 2. Flash the IRIS parent
+
+The parent must be node `0`.
+
+```bash
+cd ~/Desktop/IoT-2026/Sensing/Base
+make iris install.0 mib520,/dev/ttyUSB1
+```
+
+### 3. Compile the TelosB leaf
+
+```bash
+cd ~/Desktop/IoT-2026/Sensing/Sampler
+make clean
+make telosb
+```
+
+### 4. Flash the TelosB leaf
+
+Use node `1` for the first leaf, `2` for the second, and so on.
+
+```bash
+cd ~/Desktop/IoT-2026/Sensing/Sampler
+make telosb install.1 bsl,/dev/ttyUSB0
+```
+
+## App and Ingestion Script setup
+
+### 1. Build and start MongoDB and backend
+
+```bash
+cd ~/Desktop/IoT-2026
+sudo docker-compose up -d mongo backend
+```
+
+### 2. Start ingestion from PrintfClient
+
+Run:
+
+```bash
+cd ~/Desktop/IoT-2026
+sudo java net.tinyos.tools.PrintfClient -comm serial@/dev/ttyUSB2:iris | sudo docker-compose run --rm -T ingestion
+```
+
+### 3. Open the dashboard
+
+Setup Port forwarding on the vm, so that the port 8000 gets forwarded to the host machine.
+Then open up localhost:8000 from the host.
