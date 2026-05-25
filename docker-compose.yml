@@ -8,11 +8,6 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
 
   backend:
     build:
@@ -22,8 +17,7 @@ services:
     security_opt:
       - seccomp:unconfined
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     environment:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: iot_project
@@ -39,8 +33,7 @@ services:
     security_opt:
       - seccomp:unconfined
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     environment:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: iot_project

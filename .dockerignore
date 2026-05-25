@@ -5,7 +5,6 @@ venv
 backend/.venv
 backend/venv
 backend/frontend/node_modules
-backend/frontend/dist
 __pycache__
 *.pyc
 *.pyo
