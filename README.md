@@ -4,6 +4,10 @@
 
 # IoT-2026
 
+- ΖΑΓΚΡΕΜΠΑ ΑΛΕΞΗΣ - 1100550 - up1100550@ac.upatras.gr
+- ΘΕΟΔΟΣΟΠΟΥΛΟΣ ΧΡΙΣΤΟΦΟΡΟΣ - 1100557 - up1100557@ac.upatras.gr
+- ΕΡΜΗΣ ΕΥΘΥΜΙΟΥ-ΜΟΥΖΟΥΡΑΣ - 1100548 - up1100548@ac.upatras.gr
+
 A project that collects data from a mote network, saves temperature and humidity to a mongo database and presents the results in a dashboard.
 
 ## Fresh Ubuntu 16.04 Setup
@@ -173,13 +177,13 @@ node=1,temp=6588,humidity=1336,count=14
 Η web εφαρμογή μας έχει στηθεί με 2 επίπεδα: Backend με Python Fast API,Frontend με React.
 Ο ρόλος του backend είναι να σερβίρει το frontend (με Server Side Rendering) και να φέρνει τα δεδομένα από την βάση μέσω των 4 endpoints που φτιάξαμε.
 
-> /measurements/history (Φέρνει ιστορικά δεδομένα για ενα node)
-> /nodes (Φέρνει την τελευταία εγγραφή για όλα τα nodes)
-> /nodes/ID/latest (Φέρνει την τελευταία εγγραφή για ενα node)
-> /ws/measurements (Φέρνει live δεδομένα για ενα node)
-> Το frontend είναι React εφαρμογή με Vite και Material UI. Και αποτελείται από 2 σελίδες.
-> Η μια ειναι η κεντρική οπου φαίνονται όλα τα nodes του δικτύου
-> Και η άλλη είναι μια ειδική που δείχνει live data για ενα node συγκεκριμένα, και δίνει δυνατότητα προβολής ιστορικού με φίλτρα.
+- /measurements/history (Φέρνει ιστορικά δεδομένα για ενα node)
+- /nodes (Φέρνει την τελευταία εγγραφή για όλα τα nodes)
+- /nodes/ID/latest (Φέρνει την τελευταία εγγραφή για ενα node)
+- /ws/measurements (Φέρνει live δεδομένα για ενα node)
+- Το frontend είναι React εφαρμογή με Vite και Material UI. Και αποτελείται από 2 σελίδες.
+- Η μια ειναι η κεντρική οπου φαίνονται όλα τα nodes του δικτύου
+- Και η άλλη είναι μια ειδική που δείχνει live data για ενα node συγκεκριμένα, και δίνει δυνατότητα προβολής ιστορικού με φίλτρα.
 
 ## Ερώτημα 4:
 
